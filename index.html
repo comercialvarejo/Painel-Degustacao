@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendário de degustações</title>
+<style>
+:root{
+  --bg:#EDF1F0; --surface:#FFFFFF; --ink:#1B2528; --muted:#5C6C70; --line:#D3DBDA; --line-strong:#B5C1BF;
+  --pine:#1C5B4D; --pine-ink:#FFFFFF; --pine-soft:#DDEBE6;
+  --pend:#4F7391; --pend-bg:#E3ECF3;
+  --ok:#25804D; --ok-bg:#DCF0E4;
+  --no:#B93E34; --no-bg:#F7E0DD;
+  --re:#B87A0C; --re-bg:#FAEECF;
+  --radius:10px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid #2F7FD6;outline-offset:2px}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 48px}
+
+header.top{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+h1{margin:0;font-size:26px;letter-spacing:-.01em;line-height:1.15}
+.sub{margin:4px 0 0;color:var(--muted)}
+details.menu{position:relative}
+details.menu summary{list-style:none;cursor:pointer;padding:9px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);font-weight:600}
+details.menu summary::-webkit-details-marker{display:none}
+details.menu .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:230px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);padding:6px;box-shadow:0 8px 24px rgba(20,40,40,.16)}
+details.menu .pop button{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 10px;border-radius:7px;cursor:pointer}
+details.menu .pop button:hover{background:var(--pine-soft)}
+details.menu .pop hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+
+.warn{background:var(--re-bg);border:1px solid var(--re);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.stat .n{display:block;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .lb{color:var(--muted);font-size:13px}
+.stat.late .n{color:var(--no)}
+.bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line);margin:16px 0 8px}
+.bar span{display:block;min-width:0;transition:flex-grow .3s}
+.bar .b-realizada{background:var(--ok)}.bar .b-naorealizada{background:var(--no)}.bar .b-reagendada{background:var(--re)}.bar .b-pendente{background:var(--pend)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.next{margin:12px 0 0;font-size:14px}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 12px}
+.controls label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.controls select,.controls input[type=search]{min-height:40px;padding:6px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);min-width:150px}
+.controls .grow{flex:1 1 180px}
+.controls .grow input{width:100%}
+.views{display:inline-flex;border:1px solid var(--line-strong);border-radius:9px;overflow:hidden;margin-left:auto;align-self:flex-end}
+.views button{border:0;background:var(--surface);padding:9px 16px;cursor:pointer;min-height:40px}
+.views button[aria-pressed=true]{background:var(--pine);color:var(--pine-ink);font-weight:600}
+
+.calhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.calhead h2{margin:0;font-size:20px;text-transform:capitalize;min-width:170px}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:8px 12px;cursor:pointer;min-height:38px}
+.btn:hover{background:var(--pine-soft)}
+.btn.primary{background:var(--pine);color:var(--pine-ink);border-color:var(--pine)}
+.btn.primary:hover{background:#174A3F}
+.calhead .count{color:var(--muted);font-size:14px}
+.calhead .chk{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:14px}
+
+.calwrap{overflow-x:auto}
+.cal{min-width:640px}
+.grid{display:grid;gap:6px}
+.dow{font-weight:600;font-size:13px;color:var(--muted);padding:2px 6px}
+.dow.fs{color:var(--pine)}
+.cell{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-height:104px;padding:6px;display:flex;flex-direction:column;gap:5px}
+.cell.out{background:transparent;border-style:dashed;opacity:.55}
+.cell.today{border:2px solid var(--pine)}
+.dn{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:13px;color:var(--muted)}
+.dn span{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+.hol{font-style:normal;font-size:11.5px;background:#EEE6F3;color:#5B3E73;padding:1px 7px;border-radius:9px}
+.chip{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid transparent;border-left-width:5px;border-radius:7px;padding:6px 8px;cursor:pointer;background:var(--pend-bg);border-color:var(--pend)}
+.chip .g{font-weight:800;flex:none;width:16px;text-align:center}
+.chip .t{display:flex;flex-direction:column;min-width:0;flex:1}
+.chip .t b{font-size:13.5px;line-height:1.2}
+.chip .t small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.s-realizada{background:var(--ok-bg);border-color:var(--ok)}
+.chip.s-naorealizada{background:var(--no-bg);border-color:var(--no)}
+.chip.s-reagendada{background:var(--re-bg);border-color:var(--re)}
+.chip.late{border-style:dashed;border-left-style:solid;background:#FFF;border-color:var(--no)}
+.chip:hover{filter:brightness(.97)}
+.pill{flex:none;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:#fff;border:1px solid var(--line-strong)}
+.pill.a-aceito{background:var(--ok);color:#fff;border-color:var(--ok)}
+.pill.a-recusado{background:var(--no);color:#fff;border-color:var(--no)}
+.pill.a-aguardando{color:var(--muted)}
+
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+table{border-collapse:collapse;width:100%;min-width:860px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:13px;color:var(--muted);font-weight:600;background:#F7F9F9;position:sticky;top:0}
+tr.row{cursor:pointer}
+tr.row:hover td{background:#F4F8F7}
+tr.row.late td:first-child{box-shadow:inset 4px 0 0 var(--no)}
+td small{display:block;color:var(--muted)}
+td select{min-height:36px;border:1px solid var(--line-strong);border-radius:7px;padding:3px 6px;background:#fff}
+td .tag{display:inline-block;margin-left:6px;font-size:11.5px;font-weight:700;color:var(--no)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+
+dialog{border:0;border-radius:14px;padding:0;width:min(600px,94vw);max-height:92vh;box-shadow:0 20px 60px rgba(10,30,30,.35)}
+dialog::backdrop{background:rgba(20,35,35,.5)}
+.dh{padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.dh h3{margin:0;font-size:20px;line-height:1.2}
+.dh p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.db{padding:16px 20px;display:grid;gap:14px}
+.fld{display:grid;gap:5px}
+.fld>span,.fld>legend{font-size:13px;font-weight:600;color:var(--muted)}
+fieldset.fld{border:0;padding:0;margin:0;min-width:0}
+.fld input,.fld textarea{width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;background:#fff;min-height:40px}
+.fld textarea{min-height:84px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line-strong);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer;min-height:40px}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+.seg button[aria-pressed=true]{color:#fff;font-weight:700}
+.seg button[data-val=pendente][aria-pressed=true]{background:var(--pend);border-color:var(--pend)}
+.seg button[data-val=realizada][aria-pressed=true],.seg button[data-val=aceito][aria-pressed=true]{background:var(--ok);border-color:var(--ok)}
+.seg button[data-val=naorealizada][aria-pressed=true],.seg button[data-val=recusado][aria-pressed=true]{background:var(--no);border-color:var(--no)}
+.seg button[data-val=reagendada][aria-pressed=true]{background:var(--re);border-color:var(--re)}
+.seg button[data-val=aguardando][aria-pressed=true]{background:#586A6F;border-color:#586A6F}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.df{padding:12px 20px 18px;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--line)}
+.addr{background:#F4F7F7;border-radius:8px;padding:10px 12px;font-size:14px}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1B2528;color:#fff;padding:10px 16px;border-radius:9px;z-index:50;font-size:14px}
+footer.note{margin-top:20px;color:var(--muted);font-size:13px}
+
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mode{font-size:13px;font-weight:700;padding:6px 12px;border-radius:16px;background:#fff;border:1px solid var(--line-strong);color:var(--muted)}
+.mode.on{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.fld input:disabled,.fld textarea:disabled{background:#F1F4F4;color:#4B5A5E}
+#dSave{font-weight:600}
+@media (max-width:720px){
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .views{margin-left:0}
+  .two{grid-template-columns:1fr}
+}
+@media print{
+  .controls,.top details,.calhead button,.calhead .chk,footer.note{display:none!important}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Calendário de degustações</h1>
+      <p class="sub" id="range">Carregando…</p>
+    </div>
+    <div class="actions">
+      <span class="mode" id="modeLbl"></span>
+      <button type="button" class="btn primary" id="bAuth">Entrar para editar</button>
+      <button type="button" class="btn" id="bRefresh">Atualizar</button>
+      <button type="button" class="btn" id="bCsv">Exportar planilha (CSV)</button>
+    </div>
+  </header>
+
+  <div class="warn" id="warn" hidden></div>
+
+  <section class="panel" aria-label="Resumo das degustações">
+    <div class="stats" id="stats"></div>
+    <div class="bar" id="bar" role="img" aria-label="Situação das degustações"></div>
+    <div class="legend" id="legend"></div>
+    <p class="next" id="next"></p>
+  </section>
+
+  <div class="controls">
+    <label>Cidade<select id="fCidade"></select></label>
+    <label>Situação<select id="fStatus">
+      <option value="">Todas</option><option value="pendente">Pendente</option><option value="realizada">Realizada</option><option value="naorealizada">Não realizada</option><option value="reagendada">Reagendada</option>
+    </select></label>
+    <label>Aceite do cliente<select id="fAceite">
+      <option value="">Todos</option><option value="aceito">Aceito</option><option value="recusado">Recusado</option><option value="aguardando">Aguardando</option>
+    </select></label>
+    <label class="grow">Buscar<input type="search" id="fQ" placeholder="Cliente, cidade ou código"></label>
+    <div class="views" role="group" aria-label="Modo de exibição">
+      <button type="button" id="vCal" aria-pressed="true">Calendário</button>
+      <button type="button" id="vList" aria-pressed="false">Lista</button>
+    </div>
+  </div>
+
+  <section id="calView">
+    <div class="calhead">
+      <button class="btn" id="prev" aria-label="Mês anterior">‹</button>
+      <h2 id="monthTitle"></h2>
+      <button class="btn" id="next2" aria-label="Próximo mês">›</button>
+      <button class="btn" id="todayBtn">Hoje</button>
+      <span class="count" id="monthCount"></span>
+      <label class="chk"><input type="checkbox" id="onlyFS" checked> Mostrar só sexta e sábado</label>
+    </div>
+    <div class="calwrap"><div class="cal" id="cal"></div></div>
+  </section>
+
+  <section id="listView" hidden>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Data</th><th>Cliente</th><th>Cidade</th><th>Situação</th><th>Aceite</th><th>Observação</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="note"><span id="sync"></span>. Todos veem as mesmas informações, e a página se atualiza sozinha a cada poucos segundos. Para alterar, use "Entrar para editar".</footer>
+</div>
+
+<dialog id="dlg" aria-labelledby="dTitle">
+  <div class="dh">
+    <div>
+      <h3 id="dTitle"></h3>
+      <p id="dSub"></p>
+    </div>
+    <button type="button" class="btn" id="dClose" aria-label="Fechar">Fechar</button>
+  </div>
+  <div class="db">
+    <div class="addr" id="dAddr"></div>
+    <fieldset class="fld"><legend>Situação da degustação</legend>
+      <div class="seg" id="segStatus">
+        <button type="button" data-val="pendente">Pendente</button>
+        <button type="button" data-val="realizada">Realizada</button>
+        <button type="button" data-val="naorealizada">Não realizada</button>
+        <button type="button" data-val="reagendada">Reagendada</button>
+      </div>
+    </fieldset>
+    <fieldset class="fld"><legend>Aceite do cliente</legend>
+      <div class="seg" id="segAceite">
+        <button type="button" data-val="aguardando">Aguardando</button>
+        <button type="button" data-val="aceito">Aceito</button>
+        <button type="button" data-val="recusado">Recusado</button>
+      </div>
+      <p class="hint" id="aceiteHint">Marque a degustação como realizada para registrar o aceite.</p>
+    </fieldset>
+    <div class="two">
+      <label class="fld"><span>Data</span><input type="date" id="iData"></label>
+      <label class="fld"><span>Horário de início e término</span><input type="text" id="iHora"></label>
+    </div>
+    <div class="two">
+      <label class="fld"><span>Produto</span><input type="text" id="iProd"></label>
+      <label class="fld"><span>Vendedor</span><input type="text" id="iVend"></label>
+    </div>
+    <label class="fld"><span>Supervisor</span><input type="text" id="iSup"></label>
+    <label class="fld"><span>Observação</span><textarea id="iObs" placeholder="Ex.: cliente pediu nova data, motivo da recusa, quantidade vendida"></textarea></label>
+  </div>
+  <div class="df">
+    <button type="button" class="btn primary" id="dCopy">Copiar mensagem</button>
+    <span class="hint" style="align-self:center" id="dSaveWrap"><span id="dSave"></span><span id="editHint" hidden> Entre no modo edição para alterar.</span></span>
+  </div>
+</dialog>
+
+<dialog id="loginDlg" aria-labelledby="lTitle">
+  <form id="loginForm">
+    <div class="dh"><div><h3 id="lTitle">Entrar para editar</h3><p>Digite a senha de edição para alterar as degustações.</p></div></div>
+    <div class="db">
+      <label class="fld"><span>Senha</span><input type="password" id="pw" autocomplete="off" required></label>
+      <p class="hint" id="pwErr" style="color:var(--no)" hidden></p>
+    </div>
+    <div class="df">
+      <button type="submit" class="btn primary" id="pwOk">Entrar</button>
+      <button type="button" class="btn" id="pwCancel">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+'use strict';
+var SUPA_URL='https://wvqofoaigosaqlpzwesl.supabase.co';
+var SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cW9mb2FpZ29zYXFscHp3ZXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMTIxMzksImV4cCI6MjEwODc4ODEzOX0.PC0HR70wWteXgt5Ym3-GHFcb-1Yv_WjXpAYjjvR_Un8';
+var POLL_MS=15000;
+var MONTHS=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+var WD=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+var WDS=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+var HOL={'2026-11-02':'Finados','2026-11-15':'Proclamação da República','2026-11-20':'Consciência Negra','2026-12-25':'Natal','2027-01-01':'Confraternização'};
+var ST={pendente:{l:'Pendente',g:'○'},realizada:{l:'Realizada',g:'✓'},naorealizada:{l:'Não realizada',g:'✕'},reagendada:{l:'Reagendada',g:'↻'}};
+var AC={aguardando:'Aguardando',aceito:'Aceito',recusado:'Recusado'};
+
+function $(s){return document.querySelector(s)}
+function pad(n){return (n<10?'0':'')+n}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function parse(s){var p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])}
+function br(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function fmtLong(s){return br(s)+' ('+WD[parse(s).getDay()]+')'}
+function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+var todayISO=iso(new Date());
+
+/* ---------- acesso ao banco ---------- */
+function api(path,opt){
+  opt=opt||{};
+  opt.headers=Object.assign({apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},opt.headers||{});
+  return fetch(SUPA_URL+path,opt).then(function(r){
+    return r.text().then(function(t){
+      var j=null;try{j=t?JSON.parse(t):null}catch(e){}
+      if(!r.ok){var err=new Error((j&&(j.message||j.error))||('Erro '+r.status));err.status=r.status;throw err}
+      return j;
+    });
+  });
+}
+function rpc(name,body){return api('/rest/v1/rpc/'+name,{method:'POST',body:JSON.stringify(body)})}
+
+var items=[],loaded=false,canEdit=false,senha='';
+var F={cidade:'',status:'',aceite:'',q:''};
+var view='cal',onlyFS=true,current=null;
+var monthRef=new Date(new Date().getFullYear(),new Date().getMonth(),1),monthInit=false;
+
+function cmp(a,b){return a.data<b.data?-1:a.data>b.data?1:(a.id<b.id?-1:1)}
+function isLate(it){return it.status==='pendente'&&it.data<todayISO}
+function byId(id){return items.filter(function(i){return i.id===id})[0]}
+function filtered(){
+  var q=F.q.trim().toLowerCase();
+  return items.filter(function(it){
+    if(F.cidade&&it.cidade!==F.cidade)return false;
+    if(F.status&&it.status!==F.status)return false;
+    if(F.aceite&&!(it.status==='realizada'&&it.aceite===F.aceite))return false;
+    if(q&&(it.cliente+' '+it.cidade+' '+it.codigo+' '+it.vendedor).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(cmp);
+}
+
+/* ---------- gravação ---------- */
+var buf={},tm={},pending=0;
+function busy(){return pending>0||Object.keys(tm).length>0}
+function setSave(t){var e=$('#dSave');if(e)e.textContent=t}
+function persist(it,fields){
+  pending++;setSave('Salvando…');
+  return rpc('salvar_degustacao',{p_senha:senha,p_id:it.id,p_campos:fields}).then(function(){
+    setSave('Salvo para todos');
+  }).catch(function(e){
+    if(/senha/i.test(e.message)){logout();toast('Senha incorreta. Entre novamente para editar.')}
+    else toast('Não foi possível salvar: '+e.message);
+    setSave('Não salvo');
+    pending--;refresh(true);return;
+  }).then(function(){if(pending>0)pending--});
+}
+function queue(it,fields,delay){
+  if(!canEdit)return;
+  Object.assign(it,fields);
+  buf[it.id]=Object.assign(buf[it.id]||{},fields);
+  clearTimeout(tm[it.id]);setSave('Salvando…');
+  tm[it.id]=setTimeout(function(){var f=buf[it.id];delete buf[it.id];delete tm[it.id];persist(it,f)},delay);
+}
+
+/* ---------- carregar e atualizar ---------- */
+function stamp(){var n=new Date();$('#sync').textContent='Atualizado às '+pad(n.getHours())+':'+pad(n.getMinutes())}
+function refresh(force){
+  if(!force&&(busy()||document.hidden))return Promise.resolve();
+  return api('/rest/v1/degustacoes?select=*&order=data.asc,id.asc').then(function(rows){
+    items=rows||[];loaded=true;$('#warn').hidden=true;
+    if(!monthInit&&items.length){
+      var mn=items[0].data,mx=items[items.length-1].data;
+      var ref=todayISO<mn?mn:(todayISO>mx?mx:todayISO);
+      monthRef=new Date(parse(ref).getFullYear(),parse(ref).getMonth(),1);monthInit=true;
+      $('#range').textContent=br(mn)+' a '+br(mx)+', '+items.length+' lojas';
+    }
+    if(current){current=byId(current.id)||null;if(current&&dlg.open)fillDialog()}
+    stamp();renderCities();renderAll();
+  }).catch(function(e){
+    if(!loaded){$('#warn').hidden=false;$('#warn').textContent='Não foi possível carregar os dados ('+e.message+'). Verifique a conexão e use "Atualizar".'}
+    else $('#sync').textContent='Sem conexão, tentando de novo…';
+  });
+}
+
+/* ---------- resumo ---------- */
+function renderStats(){
+  var c={pendente:0,realizada:0,naorealizada:0,reagendada:0},ace=0,rec=0,late=0;
+  items.forEach(function(it){
+    c[it.status]=(c[it.status]||0)+1;
+    if(it.status==='realizada'){if(it.aceite==='aceito')ace++;if(it.aceite==='recusado')rec++;}
+    if(isLate(it))late++;
+  });
+  var tot=items.length,real=c.realizada;
+  var taxa=real?Math.round(ace/real*100)+'%':'–';
+  $('#stats').innerHTML=
+    '<div class="stat"><span class="n">'+real+' de '+tot+'</span><span class="lb">realizadas</span></div>'+
+    '<div class="stat"><span class="n">'+ace+'</span><span class="lb">aceitas pelo cliente</span></div>'+
+    '<div class="stat"><span class="n">'+taxa+'</span><span class="lb">taxa de aceite (aceitas ÷ realizadas)</span></div>'+
+    '<div class="stat"><span class="n">'+c.pendente+'</span><span class="lb">pendentes</span></div>'+
+    '<div class="stat late"><span class="n">'+late+'</span><span class="lb">atrasadas (data já passou)</span></div>';
+  var order=['realizada','naorealizada','reagendada','pendente'],bar='',leg='';
+  order.forEach(function(k){
+    if(c[k])bar+='<span class="b-'+k+'" style="flex-grow:'+c[k]+'" title="'+ST[k].l+': '+c[k]+'"></span>';
+    leg+='<span><i class="b-'+k+'"></i>'+ST[k].l+' '+c[k]+'</span>';
+  });
+  $('#bar').innerHTML=bar;
+  $('#legend').innerHTML=leg+'<span>Recusadas '+rec+'</span>';
+  var nx=items.filter(function(it){return (it.status==='pendente'||it.status==='reagendada')&&it.data>=todayISO}).sort(cmp)[0];
+  $('#next').innerHTML=!loaded?'Carregando…':(nx?'Próxima degustação: <b>'+fmtLong(nx.data)+'</b> em <b>'+esc(nx.cidade)+'</b>, '+esc(nx.cliente)+'.':'Nenhuma degustação futura pendente.');
+}
+function renderCities(){
+  var cs=Array.from(new Set(items.map(function(i){return i.cidade}))).sort(function(a,b){return a.localeCompare(b,'pt-BR')});
+  var sel=$('#fCidade');
+  sel.innerHTML='<option value="">Todas</option>'+cs.map(function(c){return '<option>'+esc(c)+'</option>'}).join('');
+  sel.value=F.cidade;
+}
+
+/* ---------- calendário ---------- */
+function chipHTML(it){
+  var h='<button type="button" class="chip s-'+it.status+(isLate(it)?' late':'')+'" data-id="'+esc(it.id)+'" title="'+esc(ST[it.status].l+(isLate(it)?' - atrasada':'')+': '+it.cliente)+'">'+
+    '<span class="g" aria-hidden="true">'+ST[it.status].g+'</span>'+
+    '<span class="t"><b>'+esc(it.cidade)+'</b><small>'+esc(it.cliente)+'</small></span>';
+  if(it.status==='realizada')h+='<span class="pill a-'+it.aceite+'">'+AC[it.aceite]+'</span>';
+  return h+'</button>';
+}
+function renderCal(){
+  var y=monthRef.getFullYear(),m=monthRef.getMonth();
+  $('#monthTitle').textContent=MONTHS[m]+' de '+y;
+  var first=new Date(y,m,1),last=new Date(y,m+1,0);
+  var evs=filtered().filter(function(it){var d=parse(it.data);return d.getFullYear()===y&&d.getMonth()===m});
+  var all=items.filter(function(it){var d=parse(it.data);return d.getFullYear()===y&&d.getMonth()===m});
+  var done=all.filter(function(i){return i.status==='realizada'}).length;
+  $('#monthCount').textContent=all.length?(done+' de '+all.length+' realizadas neste mês'):(loaded?'Nenhuma degustação neste mês':'Carregando…');
+  var by={};evs.forEach(function(it){(by[it.data]=by[it.data]||[]).push(it)});
+  var cols=[0,1,2,3,4,5,6];
+  if(onlyFS){var set={4:1,5:1};evs.forEach(function(it){set[(parse(it.data).getDay()+6)%7]=1});cols=Object.keys(set).map(Number).sort(function(a,b){return a-b})}
+  var start=new Date(first);start.setDate(1-((first.getDay()+6)%7));
+  var h='<div class="grid" style="grid-template-columns:repeat('+cols.length+',minmax(0,1fr))">';
+  cols.forEach(function(ci){h+='<div class="dow'+(ci>=4&&ci<=5?' fs':'')+'">'+WDS[ci]+'</div>'});
+  for(var w=new Date(start);w<=last;w.setDate(w.getDate()+7)){
+    cols.forEach(function(ci){
+      var day=new Date(w);day.setDate(w.getDate()+ci);
+      var di=iso(day),inM=day.getMonth()===m;
+      h+='<div class="cell'+(inM?'':' out')+(di===todayISO?' today':'')+'"><div class="dn"><span>'+day.getDate()+'</span>'+(HOL[di]?'<em class="hol" title="Feriado nacional">'+esc(HOL[di])+'</em>':'')+'</div>';
+      if(inM&&by[di])by[di].forEach(function(it){h+=chipHTML(it)});
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  $('#cal').innerHTML=h;
+}
+
+/* ---------- lista ---------- */
+function selHTML(id,field,map,val,dis){
+  var o=Object.keys(map).map(function(k){var l=typeof map[k]==='string'?map[k]:map[k].l;return '<option value="'+k+'"'+(k===val?' selected':'')+'>'+l+'</option>'}).join('');
+  return '<select data-id="'+esc(id)+'" data-field="'+field+'"'+(dis?' disabled':'')+' aria-label="'+(field==='status'?'Situação':'Aceite')+'">'+o+'</select>';
+}
+function renderList(){
+  var rows=filtered();
+  if(!rows.length){$('#tbody').innerHTML='<tr><td colspan="6" class="empty">'+(loaded?'Nenhuma degustação encontrada com esses filtros.':'Carregando…')+'</td></tr>';return}
+  $('#tbody').innerHTML=rows.map(function(it){
+    return '<tr class="row'+(isLate(it)?' late':'')+'" data-id="'+esc(it.id)+'">'+
+      '<td>'+br(it.data)+'<small>'+WD[parse(it.data).getDay()]+(HOL[it.data]?' (feriado)':'')+'</small></td>'+
+      '<td><b>'+esc(it.cliente)+'</b><small>Código '+esc(it.codigo)+'</small></td>'+
+      '<td>'+esc(it.cidade)+'</td>'+
+      '<td>'+selHTML(it.id,'status',ST,it.status,!canEdit)+(isLate(it)?'<span class="tag">atrasada</span>':'')+'</td>'+
+      '<td>'+selHTML(it.id,'aceite',AC,it.aceite,!canEdit||it.status!=='realizada')+'</td>'+
+      '<td>'+esc(it.obs||'')+'</td></tr>';
+  }).join('');
+}
+function renderView(){
+  $('#calView').hidden=view!=='cal';
+  $('#listView').hidden=view!=='list';
+  $('#vCal').setAttribute('aria-pressed',view==='cal');
+  $('#vList').setAttribute('aria-pressed',view==='list');
+  if(view==='cal')renderCal();else renderList();
+}
+function renderAll(){renderStats();renderView()}
+
+/* ---------- modo de edição ---------- */
+function applyMode(){
+  $('#modeLbl').textContent=canEdit?'Modo edição':'Somente visualização';
+  $('#modeLbl').className='mode'+(canEdit?' on':'');
+  $('#bAuth').textContent=canEdit?'Sair do modo edição':'Entrar para editar';
+  ['#iData','#iHora','#iProd','#iVend','#iSup','#iObs'].forEach(function(s){$(s).disabled=!canEdit});
+  $('#editHint').hidden=canEdit;
+  if(dlg.open)fillDialog();
+  renderView();
+}
+function logout(){canEdit=false;senha='';try{sessionStorage.removeItem('degust-senha')}catch(e){}applyMode()}
+function login(p){
+  return rpc('checar_senha',{p_senha:p}).then(function(ok){
+    if(ok===true){canEdit=true;senha=p;try{sessionStorage.setItem('degust-senha',p)}catch(e){}applyMode()}
+    return ok===true;
+  });
+}
+
+/* ---------- janela de detalhes ---------- */
+var dlg=$('#dlg');
+function fillDialog(){
+  var it=current;if(!it)return;
+  $('#dTitle').textContent=it.cliente;
+  $('#dSub').textContent=it.cidade+' - '+fmtLong(it.data)+' - Código '+it.codigo;
+  $('#dAddr').textContent=it.endereco+', '+it.bairro;
+  Array.prototype.forEach.call($('#segStatus').children,function(b){b.setAttribute('aria-pressed',b.dataset.val===it.status);b.disabled=!canEdit});
+  var ok=it.status==='realizada';
+  Array.prototype.forEach.call($('#segAceite').children,function(b){b.setAttribute('aria-pressed',b.dataset.val===it.aceite);b.disabled=!ok||!canEdit});
+  $('#aceiteHint').hidden=ok||!canEdit;
+}
+function openItem(id){
+  current=byId(id);if(!current)return;
+  $('#iData').value=current.data;$('#iHora').value=current.horario||'';$('#iProd').value=current.produto||'';
+  $('#iVend').value=current.vendedor||'';$('#iSup').value=current.supervisor||'';$('#iObs').value=current.obs||'';
+  setSave('');fillDialog();
+  if(!dlg.open)dlg.showModal();
+}
+function messageFor(it){
+  return '"Solicitação de degustação"\nData: '+fmtLong(it.data)+'\nProduto: '+(it.produto||'')+'\nHorário de inicio e término: '+(it.horario||'')+
+    '\nCidade: '+it.cidade+'\nEndereço: '+it.endereco+'\nBairro: '+it.bairro+'\nCliente: '+it.cliente+'\nCódigo: '+it.codigo+
+    '\nVendedor: '+(it.vendedor||'')+'\nSupervisor: '+(it.supervisor||'');
+}
+var tt;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(function(){t.hidden=true},2600)}
+function copyText(txt){
+  function fb(){var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(ta);toast(ok?'Mensagem copiada':'Não foi possível copiar')}
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(txt).then(function(){toast('Mensagem copiada')},fb)}else fb();
+}
+function bindField(sel,key){
+  $(sel).addEventListener('input',function(e){
+    if(!current||!canEdit)return;
+    var v=e.target.value;
+    if(key==='data'&&!v)return;
+    var f={};f[key]=v;queue(current,f,key==='data'?300:700);
+    if(key==='data'){$('#dSub').textContent=current.cidade+' - '+fmtLong(current.data)+' - Código '+current.codigo;monthRef=new Date(parse(v).getFullYear(),parse(v).getMonth(),1)}
+    renderAll();
+  });
+}
+bindField('#iData','data');bindField('#iHora','horario');bindField('#iProd','produto');bindField('#iVend','vendedor');bindField('#iSup','supervisor');bindField('#iObs','obs');
+
+$('#segStatus').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b||b.disabled||!current||!canEdit)return;
+  var f={status:b.dataset.val};
+  if(f.status!=='realizada')f.aceite='aguardando';
+  queue(current,f,0);fillDialog();renderAll();
+});
+$('#segAceite').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b||b.disabled||!current||!canEdit)return;
+  queue(current,{aceite:b.dataset.val},0);fillDialog();renderAll();
+});
+$('#dCopy').addEventListener('click',function(){if(current)copyText(messageFor(current))});
+$('#dClose').addEventListener('click',function(){dlg.close()});
+dlg.addEventListener('click',function(e){if(e.target===dlg)dlg.close()});
+
+/* ---------- eventos da página ---------- */
+$('#cal').addEventListener('click',function(e){var c=e.target.closest('.chip');if(c)openItem(c.dataset.id)});
+$('#tbody').addEventListener('click',function(e){
+  if(e.target.closest('select'))return;
+  var r=e.target.closest('tr.row');if(r)openItem(r.dataset.id);
+});
+$('#tbody').addEventListener('change',function(e){
+  var s=e.target.closest('select');if(!s||!canEdit)return;
+  var it=byId(s.dataset.id);if(!it)return;
+  var f={};f[s.dataset.field]=s.value;
+  if(s.dataset.field==='status'&&s.value!=='realizada')f.aceite='aguardando';
+  queue(it,f,0);renderAll();
+});
+$('#prev').addEventListener('click',function(){monthRef=new Date(monthRef.getFullYear(),monthRef.getMonth()-1,1);renderCal()});
+$('#next2').addEventListener('click',function(){monthRef=new Date(monthRef.getFullYear(),monthRef.getMonth()+1,1);renderCal()});
+$('#todayBtn').addEventListener('click',function(){var n=new Date();monthRef=new Date(n.getFullYear(),n.getMonth(),1);renderCal()});
+$('#onlyFS').addEventListener('change',function(e){onlyFS=e.target.checked;renderCal()});
+$('#vCal').addEventListener('click',function(){view='cal';renderView()});
+$('#vList').addEventListener('click',function(){view='list';renderView()});
+$('#fCidade').addEventListener('change',function(e){F.cidade=e.target.value;renderView()});
+$('#fStatus').addEventListener('change',function(e){F.status=e.target.value;renderView()});
+$('#fAceite').addEventListener('change',function(e){F.aceite=e.target.value;renderView()});
+$('#fQ').addEventListener('input',function(e){F.q=e.target.value;renderView()});
+$('#bRefresh').addEventListener('click',function(){refresh(true).then(function(){toast('Dados atualizados')})});
+
+/* ---------- login ---------- */
+var loginDlg=$('#loginDlg');
+$('#bAuth').addEventListener('click',function(){
+  if(canEdit){logout();toast('Modo edição encerrado');return}
+  $('#pw').value='';$('#pwErr').hidden=true;loginDlg.showModal();$('#pw').focus();
+});
+$('#loginForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var btn=$('#pwOk');btn.disabled=true;
+  login($('#pw').value).then(function(ok){
+    if(ok){loginDlg.close();toast('Modo edição ativado')}
+    else{$('#pwErr').textContent='Senha incorreta.';$('#pwErr').hidden=false}
+  }).catch(function(err){$('#pwErr').textContent=err.message;$('#pwErr').hidden=false}).then(function(){btn.disabled=false});
+});
+$('#pwCancel').addEventListener('click',function(){loginDlg.close()});
+
+/* ---------- exportar ---------- */
+function download(name,text,type){
+  var blob=new Blob([text],{type:type}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);document.body.removeChild(a)},500);
+}
+function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
+$('#bCsv').addEventListener('click',function(){
+  var head=['Data','Dia','Cidade','Cliente','Código','Endereço','Bairro','Produto','Horário','Vendedor','Supervisor','Situação','Aceite do cliente','Observação'];
+  var rows=items.slice().sort(cmp).map(function(it){
+    return [br(it.data),WD[parse(it.data).getDay()],it.cidade,it.cliente,it.codigo,it.endereco,it.bairro,it.produto,it.horario,it.vendedor,it.supervisor,ST[it.status].l,it.status==='realizada'?AC[it.aceite]:'',it.obs].map(q).join(';');
+  });
+  download('degustacoes.csv','\uFEFF'+head.map(q).join(';')+'\r\n'+rows.join('\r\n'),'text/csv;charset=utf-8');
+});
+
+/* ---------- início ---------- */
+applyMode();
+renderAll();
+refresh(true);
+setInterval(function(){refresh(false)},POLL_MS);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refresh(false)});
+try{var sp=sessionStorage.getItem('degust-senha');if(sp)login(sp).then(function(ok){if(!ok)logout()}).catch(function(){})}catch(e){}
+})();
+
+</script>
+</body>
+</html>
